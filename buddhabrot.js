@@ -1,20 +1,22 @@
+"use strict";
+
 function Buddhabrot(opt){
-    var MAX_ITERATIONS = opt.MaxIterations,
-        MAX_ITERATIONS_LOG = Math.log(MAX_ITERATIONS - 1.0);
-        image = opt.image,
-        height = opt.image.height,
-        width = opt.image.width,
-        pixels = image.data,
-        MinRe = opt.realRange[0],
-        MaxRe = opt.realRange[1],
-        MaxIm = (MaxRe - MinRe) * height/width*0.5;
-        MinIm = -1*MaxIm;
-        Re_factor = (MaxRe-MinRe)/(width-1),
-        Im_factor = (MaxIm-MinIm)/(height-1);
     this.draw = function (ctx) {
-        ctx.putImageData(image,0,0);
+        ctx.putImageData(opt.image,0,0);
     };
     this.calculate = function(){
+        var MAX_ITERATIONS = opt.MaxIterations,
+            MAX_ITERATIONS_LOG = Math.log(MAX_ITERATIONS - 1.0),
+            height = opt.image.height,
+            width = opt.image.width,
+            pixels = opt.image.data,
+            MinRe = opt.realRangeStart,
+            MaxRe = opt.realRangeEnd,
+            MaxIm = (MaxRe - MinRe) * height/width*0.5,
+            MinIm = -1*MaxIm,
+            Re_factor = (MaxRe-MinRe)/(width-1),
+            Im_factor = (MaxIm-MinIm)/(height-1);
+
         var start = new Date();
         console.log('START calculate Buddhabrot',start);
         for(var y = 0; y < width; ++y){
@@ -57,9 +59,17 @@ function Buddhabrot(opt){
     };//end calculate
 } 
 
+Buddhabrot.Options = function(val) {
+  this.realRangeStart = val.realRangeStart;
+  this.realRangeEnd = val.realRangeEnd;
+  this.MaxIterations = val.MaxIterations;
+  this.image = val.image;
+  this.render = val.render;
+  this.save = val.save;
+};
 var animator = new F("buddhabrot","2d").set({
     setup : function setup(ctx){
-
+        var self = this;
         // save width and heght
         this.width = window.innerWidth;
         this.height = window.innerHeight;
@@ -69,19 +79,41 @@ var animator = new F("buddhabrot","2d").set({
         ctx.fillRect(0, 0, this.width, this.height);
 
         // get full image from canvas context 
-        this.image = ctx.getImageData(0, 0, this.width, this.height);
-    },
-    update : function update(time){
+        var image = ctx.getImageData(0, 0, this.width, this.height);
 
+        this.buddhabrot = null;
         //create buddhabrot instance
-        this.buddhabrot = new Buddhabrot({
-          realRange      : [-3.0,2.0],
-          MaxIterations  : 1000,
-          image          : this.image
+        this.options  = new Buddhabrot.Options({
+            realRangeStart : -3.0,
+            realRangeEnd : 2.0,
+            MaxIterations : 500,
+            image : image,
+            render : function() {
+                ctx.fillStyle = 'rgb(0,0,0)';
+                ctx.fillRect(0, 0, self.width, self.height);
+                self.options.image = ctx.getImageData(0, 0, self.width, self.height);
+                self.buddhabrot.calculate();
+                self.buddhabrot.draw(ctx);
+            },
+            save:function () {
+                window.open(ctx.canvas.toDataURL(), '_blank');
+                window.focus();
+            }
         });
 
+        this.buddhabrot = new Buddhabrot(this.options);
+
+        var gui = new dat.GUI();
+        gui.add(this.options, 'realRangeStart',-5,-1);
+        gui.add(this.options, 'realRangeEnd', 1, 5);
+        gui.add(this.options, 'MaxIterations');
+        gui.add(this.options, 'render');
+        gui.add(this.options, 'save');
+    },
+    update : function update(time){
+        
         // calculate buddhabrot
-        this.buddhabrot.calculate()
+        this.buddhabrot.calculate();
     },
     draw : function draw(ctx){
 
